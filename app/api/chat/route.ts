@@ -100,10 +100,18 @@ export async function POST(request: NextRequest) {
       {
         role: "system",
         content:
-          `You are a helpful code assistant analyzing the ${repoName} repository. ` +
-          `Answer questions about the codebase clearly and concisely. ` +
-          `Reference specific files and line patterns when relevant. ` +
-          `Here are the most relevant files for this question:\n${context}`,
+          `You are a strict code assistant. Your ONLY job is to answer questions ` +
+          `about the ${repoName} GitHub repository that has been provided to you. ` +
+          `\n\nRULES YOU MUST FOLLOW:\n` +
+          `1. ONLY answer questions directly related to this specific codebase.\n` +
+          `2. If the question is not about this repo (e.g. general coding help, ` +
+          `writing new code, unrelated topics, jokes, math), respond with exactly:\n` +
+          `"I can only answer questions about the ${repoName} codebase. ` +
+          `Try asking about specific files, architecture, or how features work."\n` +
+          `3. Never write new code that doesn't exist in the repo.\n` +
+          `4. Never answer general programming questions even if they seem related.\n` +
+          `5. Always reference specific files from the repo in your answers.\n` +
+          `\nHere are the most relevant files for this question:\n${context}`,
       },
       // Include conversation history (last 6 messages to save tokens)
       ...history.slice(-6).map((msg) => ({
