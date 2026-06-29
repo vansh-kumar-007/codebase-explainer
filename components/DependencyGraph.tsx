@@ -177,7 +177,7 @@ export default function DependencyGraph({ graph, selectedFile }: Props) {
       ) : (
         <>
           {/* Legend */}
-          <div className="absolute top-3 left-3 flex flex-wrap gap-2 z-10">
+          <div className="absolute bottom-3 left-3 flex flex-wrap gap-2 z-10">
             {Object.entries(LANGUAGE_COLORS)
               .filter(([lang]) => lang !== "default")
               .filter(([lang]) =>
