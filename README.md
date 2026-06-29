@@ -6,7 +6,7 @@
 
 **Drop any GitHub URL. Get an explanation so clear, even your drunk self would understand it.**
 
-[![Live Demo](https://img.shields.io/badge/🚀_Live_Demo-Visit_Site-yellow?style=for-the-badge)](https://codebase-explainer.vercel.app)
+[![Live Demo](https://img.shields.io/badge/🚀_Live_Demo-Visit_Site-yellow?style=for-the-badge)](https://codebase-explainer-eight.vercel.app/)
 [![GitHub](https://img.shields.io/badge/GitHub-vansh--kumar--007-black?style=for-the-badge&logo=github)](https://github.com/vansh-kumar-007/codebase-explainer)
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?style=for-the-badge&logo=next.js)](https://nextjs.org)
 [![Groq](https://img.shields.io/badge/Groq-LLaMA_3.1-orange?style=for-the-badge)](https://groq.com)
