@@ -65,30 +65,43 @@ function getRelevantContext(
 function isOffTopic(question: string): boolean {
   const q = question.toLowerCase().trim();
 
-  // Patterns that are clearly not about a specific codebase
-  const offTopicPatterns = [
-    // Requests to write new code
-    /write\s+(me\s+)?(a\s+)?(python|javascript|js|ts|go|rust|java)/,
-    /create\s+(a\s+)?(script|program|function|class|api|bot|scraper)/,
-    /build\s+(me\s+)?(a\s+)?(script|program|function|class|api|bot)/,
-    /code\s+(to|that|for|which)/,
-    /give\s+me\s+(a\s+)?(code|script|program|example)/,
-
-    // General programming help
-    /how\s+to\s+(use|install|setup|configure)\s+(?!this|the\s+repo)/,
-    /what\s+is\s+(react|python|javascript|node|express|django|flask|rust|golang)(\s|$)/,
-    /explain\s+(react|python|javascript|node|docker|kubernetes)(\s|$)/,
-
-    // Completely unrelated topics
-    /scrape|scraper|scraping/,
-    /tell\s+me\s+a\s+joke/,
-    /what\s+is\s+the\s+weather/,
-    /who\s+is\s+(the\s+)?(president|prime\s+minister)/,
-    /recommend\s+(a\s+)?(movie|book|song|restaurant)/,
-    /help\s+me\s+with\s+my\s+(homework|essay|assignment)/,
+  // Block if question contains ANY of these keywords
+  const blockedKeywords = [
+    "scrape", "scraper", "scraping", "scrap",
+    "beautifulsoup", "selenium", "playwright",
+    "write me", "write a", "write the",
+    "create a script", "create a program",
+    "give me code", "give me a script",
+    "build me", "build a script",
+    "make me a", "make a script",
+    "python program", "javascript program",
+    "code to", "program to",
+    "tell me a joke", "weather today",
+    "who is the president", "recommend a movie",
+    "help me with my homework",
   ];
 
-  return offTopicPatterns.some((pattern) => pattern.test(q));
+  // If ANY blocked keyword appears in the question, reject it
+  if (blockedKeywords.some((keyword) => q.includes(keyword))) {
+    return true;
+  }
+
+  // Block if question has NO mention of repo-related words
+  const repoKeywords = [
+    "file", "folder", "function", "class", "import",
+    "export", "module", "component", "route", "api",
+    "code", "repo", "repository", "does", "work",
+    "entry", "point", "architecture", "structure",
+    "dependency", "dependencies", "this", "how",
+    "what", "why", "where", "which", "explain",
+  ];
+
+  const hasRepoIntent = repoKeywords.some((keyword) => q.includes(keyword));
+  if (!hasRepoIntent) {
+    return true;
+  }
+
+  return false;
 }
 
 export async function POST(request: NextRequest) {
