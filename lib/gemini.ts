@@ -1,39 +1,33 @@
 // lib/gemini.ts
-// This module handles all communication with the Gemini API.
-// We use Gemini 1.5 Flash — it's free, fast, and has a 1M token
-// context window which means we can send entire codebases at once
-// without needing complex chunking logic.
+// NOTE: Despite the filename, this now uses Groq instead of Gemini.
+// Groq provides free access to Llama 3.3 70B which is excellent
+// at code understanding. We keep the filename to avoid breaking imports.
+//
+// Groq free tier: 14,400 tokens/minute, 500 requests/day
+// Model: llama-3.3-70b-versatile — strong at code analysis
 
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import Groq from "groq-sdk";
 import { RepoData, Explanation } from "./types";
 
-// ── Initialize the Gemini client ──────────────────────────────────
-// We create this once and reuse it across calls.
-// The API key comes from .env.local via process.env
-function getGeminiClient() {
-  const apiKey = process.env.GEMINI_API_KEY;
+// ── Initialize Groq client ────────────────────────────────────────
+function getGroqClient() {
+  const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
-    throw new Error("GEMINI_API_KEY is not set in .env.local");
+    throw new Error("GROQ_API_KEY is not set in .env.local");
   }
-  return new GoogleGenerativeAI(apiKey);
+  return new Groq({ apiKey });
 }
 
-// ── Build the code context string ────────────────────────────────
-// We concatenate all files into one big string that Gemini can read.
-// Each file is clearly labeled with its path and language.
-// This is the "context" we inject into the prompt.
-//
-// We limit total characters to stay safely within Gemini's
-// 1M token window. ~800K characters ≈ ~200K tokens which is
-// well within limits but covers most real repos.
-const MAX_CONTEXT_CHARS = 800_000;
+// ── Build code context string ─────────────────────────────────────
+// Groq's context window is 128K tokens (~500K characters).
+// We stay well under that limit.
+const MAX_CONTEXT_CHARS = 400_000;
 
 function buildCodeContext(repoData: RepoData): string {
   let context = "";
   let totalChars = 0;
 
   for (const file of repoData.files) {
-    // Format each file as a clearly labeled block
     const fileBlock =
       `\n\n${"=".repeat(60)}\n` +
       `FILE: ${file.path}\n` +
@@ -41,7 +35,6 @@ function buildCodeContext(repoData: RepoData): string {
       `${"=".repeat(60)}\n` +
       file.content;
 
-    // Stop adding files if we'd exceed our character limit
     if (totalChars + fileBlock.length > MAX_CONTEXT_CHARS) {
       context += "\n\n[... additional files omitted to fit context limit ...]";
       break;
@@ -54,13 +47,9 @@ function buildCodeContext(repoData: RepoData): string {
   return context;
 }
 
-// ── Build the explanation prompt ─────────────────────────────────
-// This is the most important function in this file.
-// The quality of explanations depends entirely on prompt quality.
-// We give Gemini very specific instructions for each level.
+// ── Build the explanation prompt ──────────────────────────────────
 function buildExplanationPrompt(repoData: RepoData, codeContext: string): string {
-  return `
-You are an expert software engineer who is also hilarious and great at explaining things.
+  return `You are an expert software engineer who is also hilarious and great at explaining things.
 
 You are analyzing the GitHub repository: ${repoData.owner}/${repoData.name}
 Description: ${repoData.description}
@@ -76,7 +65,7 @@ You MUST respond in valid JSON format with exactly this structure:
 {
   "summary": "one sentence, max 15 words, what this repo does",
   "eli5": "your ELI5 explanation here",
-  "normal": "your normal explanation here", 
+  "normal": "your normal explanation here",
   "technical": "your technical explanation here"
 }
 
@@ -93,7 +82,7 @@ INSTRUCTIONS FOR EACH LEVEL:
 
 "normal": Explain like the reader is a junior developer. Rules:
 - What problem does this repo solve?
-- What is the architecture pattern? (MVC, microservices, etc.)
+- What is the architecture pattern?
 - What are the main entry points and what do they do?
 - What are the most important folders and files?
 - 200-250 words
@@ -101,56 +90,52 @@ INSTRUCTIONS FOR EACH LEVEL:
 
 "technical": Explain like the reader is a senior engineer doing a code review. Rules:
 - Architecture decisions and patterns used
-- Key design choices (why Express vs Fastify, why this folder structure, etc.)
+- Key design choices and why they matter
 - Data flow through the system
-- Notable implementation details worth knowing
+- Notable implementation details
 - Any potential issues or things to watch out for
 - 250-300 words
 - Assume deep technical knowledge
 
-IMPORTANT: Return ONLY the JSON object. No markdown, no backticks, no preamble.
-`;
+IMPORTANT: Return ONLY the JSON object. No markdown, no backticks, no preamble. Just raw JSON.`;
 }
 
 // ─────────────────────────────────────────────────────────────────
 // explainRepo
 //
-// Main export. Takes crawled repo data, sends it to Gemini,
+// Main export. Takes crawled repo data, sends it to Groq,
 // and returns structured explanations at all three levels.
 // ─────────────────────────────────────────────────────────────────
 export async function explainRepo(repoData: RepoData): Promise<Explanation> {
-  console.log(`[Gemini] Starting explanation for ${repoData.owner}/${repoData.name}`);
+  console.log(`[Groq] Starting explanation for ${repoData.owner}/${repoData.name}`);
 
-  // Build the code context and prompt
   const codeContext = buildCodeContext(repoData);
   const prompt = buildExplanationPrompt(repoData, codeContext);
 
-  console.log(`[Gemini] Context size: ${codeContext.length} characters`);
+  console.log(`[Groq] Context size: ${codeContext.length} characters`);
 
-  // Initialize Gemini with the Flash model
-  const genAI = getGeminiClient();
-  const model = genAI.getGenerativeModel({
-    model: "gemini-1.5-flash",
-    generationConfig: {
-      // temperature controls creativity vs accuracy
-      // 0.0 = robotic and deterministic
-      // 1.0 = creative but sometimes wrong
-      // 0.7 = good balance for our use case
-      temperature: 0.7,
+  const groq = getGroqClient();
 
-      // We expect a JSON response of ~500-800 tokens
-      // Setting this prevents runaway responses
-      maxOutputTokens: 1500,
-    },
+  console.log("[Groq] Sending request...");
+  const completion = await groq.chat.completions.create({
+    model: "llama-3.3-70b-versatile",
+    messages: [
+      {
+        role: "user",
+        content: prompt,
+      },
+    ],
+    // temperature: how creative vs accurate
+    // 0.7 is a good balance for explanation tasks
+    temperature: 0.7,
+    // max tokens for our JSON response
+    max_tokens: 1500,
   });
 
-  console.log("[Gemini] Sending request...");
-  const result = await model.generateContent(prompt);
-  const responseText = result.response.text();
-  console.log("[Gemini] Got response, parsing JSON...");
+  const responseText = completion.choices[0]?.message?.content || "";
+  console.log("[Groq] Got response, parsing JSON...");
 
-  // Parse the JSON response
-  // We strip any accidental markdown fences Gemini might add
+  // Strip any accidental markdown fences
   const cleaned = responseText
     .replace(/```json\n?/g, "")
     .replace(/```\n?/g, "")
@@ -160,20 +145,20 @@ export async function explainRepo(repoData: RepoData): Promise<Explanation> {
   try {
     explanation = JSON.parse(cleaned);
   } catch (parseError) {
-    console.error("[Gemini] Failed to parse JSON response:", cleaned);
+    console.error("[Groq] Failed to parse JSON response:", cleaned);
     throw new Error(
-      "Gemini returned invalid JSON. Try again — this sometimes happens with large repos."
+      "Groq returned invalid JSON. Try again — this sometimes happens with large repos."
     );
   }
 
-  // Validate the response has all required fields
+  // Validate all required fields exist
   const requiredFields = ["summary", "eli5", "normal", "technical"];
   for (const field of requiredFields) {
     if (!explanation[field as keyof Explanation]) {
-      throw new Error(`Gemini response missing field: ${field}`);
+      throw new Error(`Groq response missing field: ${field}`);
     }
   }
 
-  console.log("[Gemini] Explanation generated successfully");
+  console.log("[Groq] Explanation generated successfully");
   return explanation;
 }
