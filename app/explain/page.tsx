@@ -10,6 +10,7 @@ import { Suspense } from "react";
 import DependencyGraph from "@/components/DependencyGraph";
 import ExplanationPanel from "@/components/ExplanationPanel";
 import FileTree from "@/components/FileTree";
+import ChatInterface from "@/components/ChatInterface";
 import { RepoData, DependencyGraph as GraphType, Explanation } from "@/lib/types";
 
 // ── Loading state component ───────────────────────────────────────
@@ -37,6 +38,7 @@ function ExplainContent() {
   const [explanation, setExplanation] = useState<Explanation | null>(null);
   const [error, setError] = useState("");
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
+  const [rightPanel, setRightPanel] = useState<"explanation" | "chat">("explanation");
   useEffect(() => {
     if (!repoUrl) {
       router.push("/");
@@ -207,16 +209,47 @@ function ExplainContent() {
         {/* Divider */}
         <div className="w-px bg-gray-800" />
 
-        {/* Right: Explanation Panel */}
+        {/* Right: Explanation + Chat Panel */}
         <div className="w-[420px] p-4 flex flex-col">
-          <h3 className="text-gray-400 text-xs uppercase tracking-wider mb-2">
-            Explanation
-          </h3>
-          {explanation && (
-            <div className="h-[calc(100vh-160px)]">
+
+          {/* Toggle between Explanation and Chat */}
+          <div className="flex gap-1 mb-3">
+            <button
+              onClick={() => setRightPanel("explanation")}
+              className={`flex-1 py-1.5 rounded-lg text-xs font-medium
+                transition-colors
+                ${rightPanel === "explanation"
+                  ? "bg-yellow-400 text-black"
+                  : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+                }`}
+            >
+              📖 Explanation
+            </button>
+            <button
+              onClick={() => setRightPanel("chat")}
+              className={`flex-1 py-1.5 rounded-lg text-xs font-medium
+                transition-colors
+                ${rightPanel === "chat"
+                  ? "bg-yellow-400 text-black"
+                  : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+                }`}
+            >
+              💬 Ask Questions
+            </button>
+          </div>
+
+          <div className="h-[calc(100vh-200px)]">
+            {rightPanel === "explanation" && explanation && (
               <ExplanationPanel explanation={explanation} />
-            </div>
-          )}
+            )}
+            {rightPanel === "chat" && repoData && (
+              <ChatInterface
+                files={repoData.files}
+                repoName={`${repoData.owner}/${repoData.name}`}
+              />
+            )}
+          </div>
+
         </div>
 
       </div>
