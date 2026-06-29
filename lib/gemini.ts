@@ -21,8 +21,7 @@ function getGroqClient() {
 // ── Build code context string ─────────────────────────────────────
 // Groq's context window is 128K tokens (~500K characters).
 // We stay well under that limit.
-const MAX_CONTEXT_CHARS = 400_000;
-
+const MAX_CONTEXT_CHARS = 8_000;
 function buildCodeContext(repoData: RepoData): string {
   let context = "";
   let totalChars = 0;
@@ -49,55 +48,20 @@ function buildCodeContext(repoData: RepoData): string {
 
 // ── Build the explanation prompt ──────────────────────────────────
 function buildExplanationPrompt(repoData: RepoData, codeContext: string): string {
-  return `You are an expert software engineer who is also hilarious and great at explaining things.
-
-You are analyzing the GitHub repository: ${repoData.owner}/${repoData.name}
+  return `Analyze this GitHub repo: ${repoData.owner}/${repoData.name}
 Description: ${repoData.description}
-Primary language: ${repoData.language}
-Total files analyzed: ${repoData.fetchedFiles}
+Language: ${repoData.language}
 
-Here is the complete source code:
+CODE SAMPLE:
 ${codeContext}
 
-Your task is to explain this codebase at THREE different levels.
-You MUST respond in valid JSON format with exactly this structure:
-
+Reply ONLY with this JSON, no markdown:
 {
-  "summary": "one sentence, max 15 words, what this repo does",
-  "eli5": "your ELI5 explanation here",
-  "normal": "your normal explanation here",
-  "technical": "your technical explanation here"
-}
-
-INSTRUCTIONS FOR EACH LEVEL:
-
-"summary": One punchy sentence. No jargon. Like a tweet.
-
-"eli5": Explain like the reader just had 4 beers. Rules:
-- Use silly analogies (pizza shops, LEGO, superheroes, etc.)
-- Be funny but accurate — the analogy must actually make sense
-- Mention the most important 2-3 files by name but explain them like objects a drunk person would understand
-- 150-200 words
-- Must make someone laugh AND understand what the repo does
-
-"normal": Explain like the reader is a junior developer. Rules:
-- What problem does this repo solve?
-- What is the architecture pattern?
-- What are the main entry points and what do they do?
-- What are the most important folders and files?
-- 200-250 words
-- No jokes, just clear explanation
-
-"technical": Explain like the reader is a senior engineer doing a code review. Rules:
-- Architecture decisions and patterns used
-- Key design choices and why they matter
-- Data flow through the system
-- Notable implementation details
-- Any potential issues or things to watch out for
-- 250-300 words
-- Assume deep technical knowledge
-
-IMPORTANT: Return ONLY the JSON object. No markdown, no backticks, no preamble. Just raw JSON.`;
+  "summary": "one sentence what this does",
+  "eli5": "funny drunk analogy explanation, 100 words, use pizza/LEGO/superhero comparisons",
+  "normal": "junior dev explanation, architecture and main files, 150 words",
+  "technical": "senior engineer explanation, patterns and data flow, 150 words"
+}`;
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -118,7 +82,7 @@ export async function explainRepo(repoData: RepoData): Promise<Explanation> {
 
   console.log("[Groq] Sending request...");
   const completion = await groq.chat.completions.create({
-    model: "llama-3.3-70b-versatile",
+    model: "llama-3.1-8b-instant",
     messages: [
       {
         role: "user",
@@ -143,12 +107,37 @@ export async function explainRepo(repoData: RepoData): Promise<Explanation> {
 
   let explanation: Explanation;
   try {
-    explanation = JSON.parse(cleaned);
+    // Sometimes Groq truncates the closing brace — fix it
+    let fixedJson = cleaned;
+
+    // If JSON doesn't end with }, try to close it
+    if (!fixedJson.trimEnd().endsWith("}")) {
+      fixedJson = fixedJson.trimEnd() + '"}'.replace(/^"+/, "");
+      // More robust: find last complete field and close the object
+      const lastQuote = fixedJson.lastIndexOf('"');
+      fixedJson = fixedJson.substring(0, lastQuote + 1) + "}";
+    }
+
+    explanation = JSON.parse(fixedJson);
   } catch (parseError) {
-    console.error("[Groq] Failed to parse JSON response:", cleaned);
-    throw new Error(
-      "Groq returned invalid JSON. Try again — this sometimes happens with large repos."
-    );
+    // Last resort: extract fields manually with regex
+    try {
+      const extract = (key: string) => {
+        const match = cleaned.match(
+          new RegExp(`"${key}"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)`)
+        );
+        return match ? match[1] : `Could not extract ${key}`;
+      };
+      explanation = {
+        summary: extract("summary"),
+        eli5: extract("eli5"),
+        normal: extract("normal"),
+        technical: extract("technical"),
+      };
+    } catch {
+      console.error("[Groq] Failed to parse JSON response:", cleaned);
+      throw new Error("Groq returned invalid JSON. Try again.");
+    }
   }
 
   // Validate all required fields exist

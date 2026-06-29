@@ -129,8 +129,8 @@ export default function DependencyGraph({ graph }: Props) {
         d.fy = null;
       });
 
-    node.call(drag);
-
+    (node as any).call(drag);
+    
     // ── Update positions on each simulation tick ──────────────────
     simulation.on("tick", () => {
       link

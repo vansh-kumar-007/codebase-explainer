@@ -29,9 +29,7 @@ function ExplainContent() {
   const repoUrl = searchParams.get("repo") || "";
 
   // We track each loading step separately so user sees progress
-  const [step, setStep] = useState
-    "crawling" | "graphing" | "explaining" | "done" | "error"
-  >("crawling");
+  const [step, setStep] = useState<"crawling" | "graphing" | "explaining" | "done" | "error">("crawling");
 
   const [repoData, setRepoData] = useState<RepoData | null>(null);
   const [graph, setGraph] = useState<GraphType | null>(null);
