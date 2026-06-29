@@ -1,65 +1,117 @@
-import Image from "next/image";
+// app/page.tsx
+// The landing page. Just a URL input and a button.
+// Clean, dramatic, dark. Think: developer tool, not SaaS startup.
+
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function Home() {
+  const router = useRouter();
+  const [url, setUrl] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  // Example repos to show users what kind of URLs work
+  const exampleRepos = [
+    "https://github.com/expressjs/express",
+    "https://github.com/vercel/next.js",
+    "https://github.com/fastapi/fastapi",
+  ];
+
+  function handleExampleClick(exampleUrl: string) {
+    setUrl(exampleUrl);
+    setError("");
+  }
+
+  async function handleSubmit() {
+    // Basic validation
+    if (!url.trim()) {
+      setError("Please enter a GitHub repository URL");
+      return;
+    }
+    if (!url.includes("github.com")) {
+      setError("URL must be a GitHub repository link");
+      return;
+    }
+
+    setError("");
+    setLoading(true);
+
+    // Encode the URL and navigate to the explain page
+    // We pass the repo URL as a query parameter
+    router.push(`/explain?repo=${encodeURIComponent(url.trim())}`);
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+    <main className="min-h-screen bg-black text-white flex flex-col items-center justify-center px-4">
+
+      {/* Header */}
+      <div className="text-center mb-12">
+        <div className="text-6xl mb-4">🍺</div>
+        <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
+          Explain This Codebase
+        </h1>
+        <p className="text-xl text-gray-400 max-w-lg">
+          Paste any GitHub repo URL. Get an explanation so clear,
+          even your drunk self would understand it.
+        </p>
+      </div>
+
+      {/* Input area */}
+      <div className="w-full max-w-2xl">
+        <div className="flex gap-2 mb-3">
+          <input
+            type="text"
+            value={url}
+            onChange={(e) => {
+              setUrl(e.target.value);
+              setError("");
+            }}
+            onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+            placeholder="https://github.com/owner/repo"
+            className="flex-1 bg-gray-900 border border-gray-700 rounded-lg px-4 py-3
+                       text-white placeholder-gray-500 focus:outline-none
+                       focus:border-yellow-400 transition-colors text-sm font-mono"
+          />
+          <button
+            onClick={handleSubmit}
+            disabled={loading}
+            className="bg-yellow-400 hover:bg-yellow-300 disabled:bg-gray-700
+                       text-black font-bold px-6 py-3 rounded-lg transition-colors
+                       disabled:text-gray-500 disabled:cursor-not-allowed whitespace-nowrap"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            {loading ? "Loading..." : "Explain It →"}
+          </button>
         </div>
-      </main>
-    </div>
+
+        {/* Error message */}
+        {error && (
+          <p className="text-red-400 text-sm mb-3">{error}</p>
+        )}
+
+        {/* Example repos */}
+        <div className="flex flex-wrap gap-2 mt-4">
+          <span className="text-gray-500 text-sm">Try:</span>
+          {exampleRepos.map((example) => (
+            <button
+              key={example}
+              onClick={() => handleExampleClick(example)}
+              className="text-sm text-yellow-400 hover:text-yellow-300
+                         underline underline-offset-2 transition-colors font-mono"
+            >
+              {example.replace("https://github.com/", "")}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="absolute bottom-8 text-gray-600 text-sm">
+        Powered by Groq · GitHub API · Built by Vansh
+      </div>
+
+    </main>
   );
 }
