@@ -11,6 +11,7 @@ import { DependencyGraph as DependencyGraphType } from "@/lib/types";
 
 interface Props {
   graph: DependencyGraphType;
+  selectedFile?: string | null;
 }
 
 // Color each node by programming language
@@ -26,10 +27,29 @@ const LANGUAGE_COLORS: Record<string, string> = {
   default: "#6b7280",
 };
 
-export default function DependencyGraph({ graph }: Props) {
-  // useRef gives us a reference to the DOM element
-  // without causing re-renders when it changes
+export default function DependencyGraph({ graph, selectedFile }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
+
+  // When selectedFile changes, highlight that node
+  useEffect(() => {
+    if (!svgRef.current) return;
+    const svg = d3.select(svgRef.current);
+
+    // Reset all nodes to their original color
+    svg.selectAll("circle")
+      .attr("stroke", (d: any) => d.isEntryPoint ? "#fbbf24" : "#1f2937")
+      .attr("stroke-width", (d: any) => d.isEntryPoint ? 3 : 1.5)
+      .attr("opacity", selectedFile ? 0.4 : 1);
+
+    // Highlight the selected node
+    if (selectedFile) {
+      svg.selectAll("circle")
+        .filter((d: any) => d.id === selectedFile)
+        .attr("stroke", "#fbbf24")
+        .attr("stroke-width", 4)
+        .attr("opacity", 1);
+    }
+  }, [selectedFile]);
 
   useEffect(() => {
     if (!svgRef.current || graph.nodes.length === 0) return;
@@ -130,7 +150,7 @@ export default function DependencyGraph({ graph }: Props) {
       });
 
     (node as any).call(drag);
-    
+
     // ── Update positions on each simulation tick ──────────────────
     simulation.on("tick", () => {
       link

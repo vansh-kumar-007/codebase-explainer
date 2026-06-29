@@ -9,6 +9,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { Suspense } from "react";
 import DependencyGraph from "@/components/DependencyGraph";
 import ExplanationPanel from "@/components/ExplanationPanel";
+import FileTree from "@/components/FileTree";
 import { RepoData, DependencyGraph as GraphType, Explanation } from "@/lib/types";
 
 // ── Loading state component ───────────────────────────────────────
@@ -35,7 +36,7 @@ function ExplainContent() {
   const [graph, setGraph] = useState<GraphType | null>(null);
   const [explanation, setExplanation] = useState<Explanation | null>(null);
   const [error, setError] = useState("");
-
+  const [selectedFile, setSelectedFile] = useState<string | null>(null);
   useEffect(() => {
     if (!repoUrl) {
       router.push("/");
@@ -176,17 +177,29 @@ function ExplainContent() {
         </div>
       )}
 
-      {/* Main content: graph + explanation side by side */}
+      {/* Main content: file tree + graph + explanation */}
       <div className="flex-1 flex gap-0 overflow-hidden">
 
-        {/* Left: Dependency Graph */}
+        {/* Far Left: File Tree Sidebar */}
+        <div className="w-56 border-r border-gray-800 p-3 overflow-hidden
+                        flex flex-col">
+          {repoData && (
+            <FileTree
+              files={repoData.files}
+              selectedFile={selectedFile}
+              onFileSelect={setSelectedFile}
+            />
+          )}
+        </div>
+
+        {/* Middle: Dependency Graph */}
         <div className="flex-1 relative p-4">
           <h3 className="text-gray-400 text-xs uppercase tracking-wider mb-2">
             Dependency Graph
           </h3>
           {graph && (
             <div className="h-[calc(100vh-160px)]">
-              <DependencyGraph graph={graph} />
+              <DependencyGraph graph={graph} selectedFile={selectedFile} />
             </div>
           )}
         </div>
