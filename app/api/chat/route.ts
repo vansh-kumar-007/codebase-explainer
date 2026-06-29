@@ -59,6 +59,38 @@ function getRelevantContext(
   return context;
 }
 
+// Hard-coded intent check — runs BEFORE calling Groq.
+// If the question is clearly off-topic, we reject it immediately
+// without wasting any API tokens.
+function isOffTopic(question: string): boolean {
+  const q = question.toLowerCase().trim();
+
+  // Patterns that are clearly not about a specific codebase
+  const offTopicPatterns = [
+    // Requests to write new code
+    /write\s+(me\s+)?(a\s+)?(python|javascript|js|ts|go|rust|java)/,
+    /create\s+(a\s+)?(script|program|function|class|api|bot|scraper)/,
+    /build\s+(me\s+)?(a\s+)?(script|program|function|class|api|bot)/,
+    /code\s+(to|that|for|which)/,
+    /give\s+me\s+(a\s+)?(code|script|program|example)/,
+
+    // General programming help
+    /how\s+to\s+(use|install|setup|configure)\s+(?!this|the\s+repo)/,
+    /what\s+is\s+(react|python|javascript|node|express|django|flask|rust|golang)(\s|$)/,
+    /explain\s+(react|python|javascript|node|docker|kubernetes)(\s|$)/,
+
+    // Completely unrelated topics
+    /scrape|scraper|scraping/,
+    /tell\s+me\s+a\s+joke/,
+    /what\s+is\s+the\s+weather/,
+    /who\s+is\s+(the\s+)?(president|prime\s+minister)/,
+    /recommend\s+(a\s+)?(movie|book|song|restaurant)/,
+    /help\s+me\s+with\s+my\s+(homework|essay|assignment)/,
+  ];
+
+  return offTopicPatterns.some((pattern) => pattern.test(q));
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -79,6 +111,20 @@ export async function POST(request: NextRequest) {
         { success: false, error: "Missing question or files" },
         { status: 400 }
       );
+    }
+
+    // Hard check before hitting the LLM
+    if (isOffTopic(question)) {
+      return NextResponse.json({
+        success: true,
+        answer:
+          `I'm only here to answer questions about the **${repoName}** codebase. ` +
+          `Try asking things like:\n` +
+          `- "What does index.js do?"\n` +
+          `- "How is routing handled?"\n` +
+          `- "What are the main dependencies?"\n` +
+          `- "How does authentication work in this repo?"`,
+      });
     }
 
     const apiKey = process.env.GROQ_API_KEY;
